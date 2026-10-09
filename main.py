@@ -3,6 +3,7 @@ import io
 from docx import Document
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
 from pptx import Presentation
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from pypdf import PdfReader
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 client = genai.Client()  # reads GEMINI_API_KEY from the environment
 
 
@@ -81,6 +83,7 @@ def make_quiz(text: str, count: int, difficulty: str):
 @app.get("/")
 def home():
     return FileResponse("index.html")
+
 
 @app.post("/quiz")
 def create_quiz(req: QuizRequest):
