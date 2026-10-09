@@ -1,7 +1,12 @@
+import io
+
+from docx import Document
 from fastapi import FastAPI, HTTPException
 from google import genai
 from google.genai import types
+from pptx import Presentation
 from pydantic import BaseModel
+from pypdf import PdfReader
 
 app = FastAPI()
 client = genai.Client()  # reads GEMINI_API_KEY from the environment
@@ -22,6 +27,27 @@ class QuizRequest(BaseModel):
     text: str
     count: int = 5
     difficulty: str = "medium"
+
+
+def extract_text(filename: str, data: bytes) -> str:
+    ext = filename.lower().rsplit(".", 1)[-1]
+    if ext == "pdf":
+        reader = PdfReader(io.BytesIO(data))
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
+    if ext == "docx":
+        doc = Document(io.BytesIO(data))
+        return "\n".join(p.text for p in doc.paragraphs)
+    if ext == "pptx":
+        prs = Presentation(io.BytesIO(data))
+        return "\n".join(
+            shape.text_frame.text
+            for slide in prs.slides
+            for shape in slide.shapes
+            if shape.has_text_frame
+        )
+    if ext in ("txt", "md"):
+        return data.decode("utf-8", errors="ignore")
+    raise ValueError(f"Unsupported file type: .{ext}")
 
 
 @app.get("/")
