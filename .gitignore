@@ -27,3 +27,7 @@ htmlcov/
 build/
 dist/
 *.egg-info/
+
+# Local notes and test files
+context/
+demo.docx
