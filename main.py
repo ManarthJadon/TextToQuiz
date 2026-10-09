@@ -2,6 +2,7 @@ import io
 
 from docx import Document
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from google import genai
 from google.genai import types
 from pptx import Presentation
@@ -79,8 +80,7 @@ def make_quiz(text: str, count: int, difficulty: str):
 
 @app.get("/")
 def home():
-    return {"status": "ok"}
-
+    return FileResponse("index.html")
 
 @app.post("/quiz")
 def create_quiz(req: QuizRequest):

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Text to Quiz</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; padding: 0 1rem; }
+    label { display: block; margin-top: 1rem; }
+    textarea { width: 100%; height: 120px; }
+    button { margin-top: 1rem; padding: .5rem 1rem; }
+    .q { margin-top: 1.5rem; }
+    .q label { margin-top: .3rem; }
+    #status { margin-top: 1rem; color: #b00; }
+  </style>
+</head>
+<body>
+  <h1>Text to Quiz</h1>
+
+  <label>Upload a file (.pdf, .docx, .pptx, .txt, .md)
+    <input type="file" id="file" accept=".pdf,.docx,.pptx,.txt,.md">
+  </label>
+  <label>Or paste text
+    <textarea id="text"></textarea>
+  </label>
+  <label>Difficulty
+    <select id="difficulty">
+      <option>easy</option>
+      <option selected>medium</option>
+      <option>hard</option>
+    </select>
+  </label>
+  <label>Number of questions
+    <input type="number" id="count" value="5" min="1" max="20">
+  </label>
+  <button id="go">Make quiz</button>
+
+  <div id="status"></div>
+  <div id="quiz"></div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    $("go").onclick = async () => {
+      $("status").textContent = "Making your quiz...";
+      $("quiz").innerHTML = "";
+      const file = $("file").files[0];
+      const count = $("count").value;
+      const difficulty = $("difficulty").value;
+
+      let res;
+      try {
+        if (file) {
+          const form = new FormData();
+          form.append("file", file);
+          form.append("count", count);
+          form.append("difficulty", difficulty);
+          res = await fetch("/upload", { method: "POST", body: form });
+        } else {
+          res = await fetch("/quiz", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: $("text").value, count: Number(count), difficulty }),
+          });
+        }
+      } catch {
+        $("status").textContent = "Could not reach the server.";
+        return;
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        $("status").textContent = typeof data.detail === "string" ? data.detail : "Something went wrong.";
+        return;
+      }
+
+      $("status").textContent = "";
+      data.questions.forEach((q, i) => {
+        const div = document.createElement("div");
+        div.className = "q";
+        const title = document.createElement("strong");
+        title.textContent = `${i + 1}. ${q.question}`;
+        div.append(title);
+        q.options.forEach(opt => {
+          const label = document.createElement("label");
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = "q" + i;
+          label.append(radio, " " + opt);
+          div.append(label);
+        });
+        $("quiz").append(div);
+      });
+    };
+  </script>
+</body>
+</html>
