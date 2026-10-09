@@ -1,7 +1,7 @@
 import io
 
 from docx import Document
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from google import genai
 from google.genai import types
 from pptx import Presentation
@@ -50,23 +50,17 @@ def extract_text(filename: str, data: bytes) -> str:
     raise ValueError(f"Unsupported file type: .{ext}")
 
 
-@app.get("/")
-def home():
-    return {"status": "ok"}
-
-
-@app.post("/quiz")
-def create_quiz(req: QuizRequest):
-    if not 50 <= len(req.text) <= 20000:
+def make_quiz(text: str, count: int, difficulty: str):
+    if not 50 <= len(text) <= 20000:
         raise HTTPException(400, "Text must be 50 to 20,000 characters")
-    if not 1 <= req.count <= 20:
+    if not 1 <= count <= 20:
         raise HTTPException(400, "Count must be 1 to 20")
-    if req.difficulty not in ("easy", "medium", "hard"):
+    if difficulty not in ("easy", "medium", "hard"):
         raise HTTPException(400, "Difficulty must be easy, medium or hard")
 
     prompt = (
-        f"Make {req.count} multiple-choice questions at {req.difficulty} difficulty "
-        f"from the text below. Give 4 options per question.\n\n{req.text}"
+        f"Make {count} multiple-choice questions at {difficulty} difficulty "
+        f"from the text below. Give 4 options per question.\n\n{text}"
     )
     try:
         response = client.models.generate_content(
@@ -81,3 +75,28 @@ def create_quiz(req: QuizRequest):
         print("GEMINI ERROR:", e)
         raise HTTPException(502, "Gemini request failed, try again")
     return response.parsed
+
+
+@app.get("/")
+def home():
+    return {"status": "ok"}
+
+
+@app.post("/quiz")
+def create_quiz(req: QuizRequest):
+    return make_quiz(req.text, req.count, req.difficulty)
+
+
+@app.post("/upload")
+def upload(
+    file: UploadFile = File(...),
+    count: int = Form(5),
+    difficulty: str = Form("medium"),
+):
+    try:
+        text = extract_text(file.filename, file.file.read())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    except Exception:
+        raise HTTPException(400, "Could not read this file")
+    return make_quiz(text, count, difficulty)
