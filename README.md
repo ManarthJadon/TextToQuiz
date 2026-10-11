@@ -2,7 +2,7 @@
 
 Turn study notes, PDFs, slides, and pasted text into a smart multiple-choice quiz in seconds.
 
-Text to Quiz is a lightweight AI-powered study assistant that extracts text from your files, sends it to Google Gemini, and turns it into a quiz with instant scoring and explanations. It’s built for students, self-learners, and anyone who wants a faster way to review material.
+Text to Quiz is a lightweight AI-powered study assistant that extracts text from your files, sends it to Google Gemini, and turns it into a quiz with instant scoring and explanations. It’s built for[...]
 
 ## Why use it?
 
@@ -99,10 +99,11 @@ static/style.css Styling and UI
 static/app.js    Form logic, quiz rendering, and scoring
 ```
 
-## Current limitations
+## ⚠️ Limitations
 
-- Input text must be between 50 and 20,000 characters
-- PDFs with scanned or non-selectable text may not work correctly
+- Text must be 50 to 200,000 characters, and uploads can be at most 10 MB.
+- Scanned PDFs without selectable text are not supported.
+- Gemini can be busy at times and return an error. Try again in a moment.
 
 ## Roadmap
 
@@ -113,4 +114,4 @@ static/app.js    Form logic, quiz rendering, and scoring
 
 ## Built for learning smarter
 
-Text to Quiz helps turn passive reading into active learning. Whether you’re revising for an exam, preparing for interviews, or just testing your understanding, this app turns your material into a quick, interactive quiz experience.
+Text to Quiz helps turn passive reading into active learning. Whether you’re revising for an exam, preparing for interviews, or just testing your understanding, this app turns your material into a q[...]
