@@ -10,6 +10,9 @@ from pptx import Presentation
 from pydantic import BaseModel
 from pypdf import PdfReader
 
+MAX_CHARS = 200_000
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 client = genai.Client()  # reads GEMINI_API_KEY from the environment
@@ -54,8 +57,8 @@ def extract_text(filename: str, data: bytes) -> str:
 
 
 def make_quiz(text: str, count: int, difficulty: str):
-    if not 50 <= len(text) <= 20000:
-        raise HTTPException(400, "Text must be 50 to 20,000 characters")
+    if not 50 <= len(text) <= MAX_CHARS:
+        raise HTTPException(400, f"Text must be 50 to {MAX_CHARS:,} characters")
     if not 1 <= count <= 20:
         raise HTTPException(400, "Count must be 1 to 20")
     if difficulty not in ("easy", "medium", "hard"):
@@ -63,7 +66,8 @@ def make_quiz(text: str, count: int, difficulty: str):
 
     prompt = (
         f"Make {count} multiple-choice questions at {difficulty} difficulty "
-        f"from the text below. Give 4 options per question.\n\n{text}"
+        f"from the text below. Give 4 options per question. "
+        f"Spread the questions across the whole text.\n\n{text}"
     )
     try:
         response = client.models.generate_content(
@@ -96,8 +100,11 @@ def upload(
     count: int = Form(5),
     difficulty: str = Form("medium"),
 ):
+    data = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File is too large (max 10 MB)")
     try:
-        text = extract_text(file.filename, file.file.read())
+        text = extract_text(file.filename, data)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception:
