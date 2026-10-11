@@ -107,7 +107,7 @@ static/app.js    Form logic, quiz rendering, and scoring
 
 ## Roadmap
 
-- Support long documents by splitting content into chunks
+- ~~Support long documents~~ Done: raised the limit to 200,000 characters
 - Launch a live demo
 - Add tests and Docker support
 - Let users retake only the questions they missed
