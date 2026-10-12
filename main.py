@@ -1,19 +1,26 @@
 import io
 
 from docx import Document
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from google import genai
 from google.genai import types
 from pptx import Presentation
 from pydantic import BaseModel
 from pypdf import PdfReader
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 MAX_CHARS = 200_000
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+RATE_LIMIT = "5/minute"  # per IP, shared by /quiz and /upload
 
+# ponytail: in-memory counters work for one server instance; use Redis storage if we ever run several
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+app.state.limiter = limiter
 app.mount("/static", StaticFiles(directory="static"), name="static")
 client = genai.Client()  # reads GEMINI_API_KEY from the environment
 
@@ -33,6 +40,14 @@ class QuizRequest(BaseModel):
     text: str
     count: int = 5
     difficulty: str = "medium"
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limited(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        {"detail": "Too many quizzes, please wait a minute and try again"},
+        status_code=429,
+    )
 
 
 def extract_text(filename: str, data: bytes) -> str:
@@ -89,13 +104,21 @@ def home():
     return FileResponse("index.html")
 
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/quiz")
-def create_quiz(req: QuizRequest):
+@limiter.shared_limit(RATE_LIMIT, scope="quiz")
+def create_quiz(request: Request, req: QuizRequest):
     return make_quiz(req.text, req.count, req.difficulty)
 
 
 @app.post("/upload")
+@limiter.shared_limit(RATE_LIMIT, scope="quiz")
 def upload(
+    request: Request,
     file: UploadFile = File(...),
     count: int = Form(5),
     difficulty: str = Form("medium"),

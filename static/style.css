@@ -9,3 +9,4 @@ button { margin-top: 1rem; padding: .5rem 1rem; }
 .wrong { background: #f8d0d0; }
 #status { margin-top: 1rem; color: #b00; }
 #score { margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }
+.notice { margin-top: 1rem; font-size: .85rem; color: #666; }

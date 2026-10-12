@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+google-genai
+pypdf
+python-docx
+python-pptx
+python-multipart
+slowapi

@@ -62,6 +62,9 @@ def broken_gemini(monkeypatch):
 
     monkeypatch.setattr(main, "client", SimpleNamespace(models=SimpleNamespace(generate_content=boom)))
 
+@pytest.fixture(autouse=True)
+def reset_limiter():
+    main.limiter.reset()
 
 # --- extract_text ---
 
@@ -135,3 +138,15 @@ def test_upload_unreadable_file():
 
 def test_upload_too_large():
     assert upload("big.txt", b"a" * (main.MAX_UPLOAD_BYTES + 1)).status_code == 413
+
+# --- health and rate limit ---
+
+def test_health():
+    assert api.get("/health").json() == {"status": "ok"}
+
+
+def test_rate_limit(fake_gemini):
+    n = int(main.RATE_LIMIT.split("/")[0])
+    responses = [api.post("/quiz", json={"text": TEXT}) for _ in range(n + 1)]
+    assert [r.status_code for r in responses] == [200] * n + [429]
+    assert "wait a minute" in responses[-1].json()["detail"]
