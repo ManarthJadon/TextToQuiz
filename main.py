@@ -22,7 +22,16 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
 app.mount("/static", StaticFiles(directory="static"), name="static")
-client = genai.Client()  # reads GEMINI_API_KEY from the environment
+client = genai.Client(  # reads GEMINI_API_KEY from the environment
+    http_options=types.HttpOptions(
+        timeout=60_000,  # milliseconds, per try
+        retry_options=types.HttpRetryOptions(
+            attempts=3,  # total tries, including the first
+            initial_delay=1.0,
+            http_status_codes=[500, 503, 504],
+        ),
+    )
+)
 
 
 class Question(BaseModel):
@@ -81,9 +90,12 @@ def make_quiz(text: str, count: int, difficulty: str):
 
     prompt = (
         f"Make {count} multiple-choice questions at {difficulty} difficulty "
-        f"from the text below. Give 4 options per question. "
+        f"from the text below. Give 4 options per question, with exactly one correct. "
+        f"Ask about the subject matter and ideas in the text. Ignore general "
+        f"instructions, headers, page numbers, marks, time limits and formatting notes. "
         f"Spread the questions across the whole text.\n\n{text}"
     )
+
     try:
         response = client.models.generate_content(
             model="gemini-3.8-flash",
