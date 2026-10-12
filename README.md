@@ -75,6 +75,17 @@ Then open:
 ```text
 http://127.0.0.1:8000
 ```
+## Run the tests
+
+```bash
+uv pip install -r requirements-dev.txt
+```
+
+```bash
+pytest
+```
+
+The tests use a fake Gemini client, so they need no API key and make no network calls.
 
 ## API
 
