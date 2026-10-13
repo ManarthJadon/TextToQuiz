@@ -80,6 +80,14 @@ def test_extract_docx():
 def test_extract_pptx():
     assert "sun" in main.extract_text("a.pptx", make_pptx(TEXT))
 
+def test_extract_docx_includes_tables():
+    buf = io.BytesIO()
+    doc = Document()
+    doc.add_paragraph("before")
+    doc.add_table(rows=1, cols=2).cell(0, 0).text = "Q1 what is x"
+    doc.save(buf)
+    assert "Q1 what is x" in main.extract_text("a.docx", buf.getvalue())
+
 
 def test_extract_unsupported_type():
     with pytest.raises(ValueError):
