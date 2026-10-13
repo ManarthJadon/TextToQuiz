@@ -118,10 +118,39 @@ static/app.js    Form logic, quiz rendering, and scoring
 
 ## Roadmap
 
-- ~~Support long documents~~ Done: raised the limit to 200,000 characters
+**Done**
+
+- ~~Support long documents~~ Raised the limit to 200,000 characters
+- ~~Tests and Docker support~~
+- ~~Read tables in Word and PowerPoint files~~
+
+**Next**
+
 - Launch a live demo
-- Add tests and Docker support
-- Let users retake only the questions they missed
+- Refreshed design
+
+**Better learning**
+
+- Show the source sentence from your notes for each answer
+- Retake only the questions you missed
+- Weak-topic summary after each quiz
+- Explain why the wrong options are wrong
+- Flashcards
+- Exam mode with a timer
+- More question types (true/false, fill in the blank)
+
+**Exam preparation**
+
+- Analyze previous year question papers and highlight the most important topics
+- Generate a practice question paper from previous year papers
+
+**Platform**
+
+- Cache results to save API quota
+- Run the tests automatically on every push (GitHub Actions)
+- Export a quiz as PDF
+- User accounts and saved quiz history
+- Paid plans for higher usage
 
 ## Built for learning smarter
 
