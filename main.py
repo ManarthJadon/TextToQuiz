@@ -107,6 +107,11 @@ def make_quiz(text: str, count: int, difficulty: str):
         )
     except Exception as e:
         print("GEMINI ERROR:", e)
+        code = getattr(e, "code", None)  # Gemini errors carry the HTTP status
+        if code == 429:
+            raise HTTPException(429, "The free daily limit is used up, please try again tomorrow")
+        if code in (503, 504):
+            raise HTTPException(503, "Gemini is busy right now, please try again in a minute")
         raise HTTPException(502, "Gemini request failed, try again")
     return response.parsed
 
