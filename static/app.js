@@ -21,7 +21,7 @@ function checkAnswers(questions, button) {
   button.disabled = true;
 }
 
-$("go").onclick = async () => {
+async function makeQuiz() {
   $("status").textContent = "Making your quiz...";
   $("score").textContent = "";
   $("quiz").innerHTML = "";
@@ -49,9 +49,12 @@ $("go").onclick = async () => {
     return;
   }
 
-  const data = await res.json();
-  if (!res.ok) {
-    $("status").textContent = typeof data.detail === "string" ? data.detail : "Something went wrong.";
+  // A host's proxy can answer with an HTML error page instead of JSON (for example on a timeout)
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) {
+    $("status").textContent = typeof data?.detail === "string"
+      ? data.detail
+      : "Something went wrong, please try again in a minute.";
     return;
   }
 
@@ -78,4 +81,14 @@ $("go").onclick = async () => {
   check.textContent = "Check answers";
   check.onclick = () => checkAnswers(data.questions, check);
   $("quiz").append(check);
+}
+
+// Disable the button while working, so double clicks don't use up the quota
+$("go").onclick = async () => {
+  $("go").disabled = true;
+  try {
+    await makeQuiz();
+  } finally {
+    $("go").disabled = false;
+  }
 };
