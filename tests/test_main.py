@@ -158,3 +158,25 @@ def test_rate_limit(fake_gemini):
     responses = [api.post("/quiz", json={"text": TEXT}) for _ in range(n + 1)]
     assert [r.status_code for r in responses] == [200] * n + [429]
     assert "wait a minute" in responses[-1].json()["detail"]
+
+def test_quiz_falls_back_to_next_model(monkeypatch):
+    calls = []
+
+    def flaky(**kw):
+        calls.append(kw["model"])
+        if len(calls) == 1:
+            raise RuntimeError("first model is busy")
+        return SimpleNamespace(parsed=FAKE_QUIZ)
+
+    monkeypatch.setattr(main, "client", SimpleNamespace(models=SimpleNamespace(generate_content=flaky)))
+    r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
+    assert r.status_code == 200
+    assert calls == main.MODELS[:2]
+
+
+def test_quiz_rejects_bad_answer_index(monkeypatch):
+    bad = main.Quiz(questions=[FAKE_QUIZ.questions[0].model_copy(update={"answer_index": 7})])
+    fake = SimpleNamespace(models=SimpleNamespace(generate_content=lambda **kw: SimpleNamespace(parsed=bad)))
+    monkeypatch.setattr(main, "client", fake)
+    r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
+    assert r.status_code == 502

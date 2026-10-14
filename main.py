@@ -17,6 +17,8 @@ from slowapi.util import get_remote_address
 MAX_CHARS = 200_000
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 RATE_LIMIT = "5/minute"  # per IP, shared by /quiz and /upload
+# Tried in order: each model has its own free quota, so a busy or used-up model falls through to the next
+MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
 # ponytail: in-memory counters work for one server instance; use Redis storage if we ever run several
 limiter = Limiter(key_func=get_remote_address)
@@ -27,7 +29,7 @@ client = genai.Client(  # reads GEMINI_API_KEY from the environment
     http_options=types.HttpOptions(
         timeout=60_000,  # milliseconds, per try
         retry_options=types.HttpRetryOptions(
-            attempts=3,  # total tries, including the first
+            attempts=2,  # total tries per model, including the first
             initial_delay=1.0,
             http_status_codes=[500, 503, 504],
         ),
@@ -107,24 +109,35 @@ def make_quiz(text: str, count: int, difficulty: str):
         f"Spread the questions across the whole text.\n\n{text}"
     )
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-3.8-flash",
-            contents=prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-                response_schema=Quiz,
-            ),
-        )
-    except Exception as e:
-        print("GEMINI ERROR:", e)
-        code = getattr(e, "code", None)  # Gemini errors carry the HTTP status
-        if code == 429:
-            raise HTTPException(429, "The free daily limit is used up, please try again tomorrow")
-        if code in (503, 504):
-            raise HTTPException(503, "Gemini is busy right now, please try again in a minute")
-        raise HTTPException(502, "Gemini request failed, try again")
-    return response.parsed
+    error = None
+    for model in MODELS:
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=Quiz,
+                ),
+            )
+        except Exception as e:
+            print(f"GEMINI ERROR ({model}):", e)
+            error = e
+            continue
+        quiz = response.parsed
+        # Only accept quizzes the page can show: 4 options and a valid answer
+        if quiz and quiz.questions and all(
+            len(q.options) == 4 and 0 <= q.answer_index < 4 for q in quiz.questions
+        ):
+            return quiz
+        print(f"GEMINI BAD ANSWER ({model})")
+
+    code = getattr(error, "code", None)  # Gemini errors carry the HTTP status
+    if code == 429:
+        raise HTTPException(429, "The free daily limit is used up, please try again tomorrow")
+    if code in (503, 504):
+        raise HTTPException(503, "Gemini is busy right now, please try again in a minute")
+    raise HTTPException(502, "Gemini request failed, try again")
 
 
 @app.get("/")
