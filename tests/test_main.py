@@ -1,9 +1,11 @@
 import io
 import os
+import time
 from types import SimpleNamespace
 
 os.environ.setdefault("GEMINI_API_KEY", "test-key")  # main.py creates the Gemini client on import
 
+import limits.storage.memory
 import pytest
 from docx import Document
 from fastapi.testclient import TestClient
@@ -154,7 +156,7 @@ def test_health():
 
 
 def test_rate_limit(fake_gemini):
-    n = int(main.RATE_LIMIT.split("/")[0])
+    n = 5  # the per-minute limit
     responses = [api.post("/quiz", json={"text": TEXT}) for _ in range(n + 1)]
     assert [r.status_code for r in responses] == [200] * n + [429]
     assert "wait a minute" in responses[-1].json()["detail"]
@@ -180,3 +182,14 @@ def test_quiz_rejects_bad_answer_index(monkeypatch):
     monkeypatch.setattr(main, "client", fake)
     r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
     assert r.status_code == 502
+
+def test_daily_limit(fake_gemini, monkeypatch):
+    clock = [time.time()]
+    # The rate limiter reads this clock, so the test can jump ahead a minute without waiting
+    monkeypatch.setattr(limits.storage.memory, "time", SimpleNamespace(time=lambda: clock[0]))
+    codes = []
+    for _ in range(16):
+        clock[0] += 61  # a new minute each time, so only the daily limit can block
+        codes.append(api.post("/quiz", json={"text": TEXT}).status_code)
+    assert codes == [200] * 15 + [429]
+    assert "tomorrow" in api.post("/quiz", json={"text": TEXT}).json()["detail"]

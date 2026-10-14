@@ -16,7 +16,7 @@ from slowapi.util import get_remote_address
 
 MAX_CHARS = 200_000
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
-RATE_LIMIT = "5/minute"  # per IP, shared by /quiz and /upload
+RATE_LIMIT = "5/minute;15/day"  # per IP, shared by /quiz and /upload
 # Tried in order: each model has its own free quota, so a busy or used-up model falls through to the next
 MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
@@ -56,10 +56,11 @@ class QuizRequest(BaseModel):
 
 @app.exception_handler(RateLimitExceeded)
 def rate_limited(request: Request, exc: RateLimitExceeded):
-    return JSONResponse(
-        {"detail": "Too many quizzes, please wait a minute and try again"},
-        status_code=429,
-    )
+    if "day" in str(exc.limit.limit):  # e.g. "15 per 1 day"
+        message = "You have made the most quizzes allowed today, please come back tomorrow"
+    else:
+        message = "Too many quizzes, please wait a minute and try again"
+    return JSONResponse({"detail": message}, status_code=429)
 
 
 def table_text(table) -> str:  # works for Word and PowerPoint tables
