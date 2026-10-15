@@ -11,7 +11,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 from pptx import Presentation
 
-import main
+from app import main
 
 api = TestClient(main.app)
 TEXT = "The sun is a star at the center of our solar system. " * 2

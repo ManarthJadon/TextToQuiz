@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 
 from docx import Document
 from docx.table import Table
@@ -20,6 +21,7 @@ RATE_LIMIT = "5/minute;15/day"  # per IP, shared by /quiz and /upload
 # Tried in order: each model has its own free quota, so a busy or used-up model falls through to the next
 MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
+STATIC_DIR = Path(__file__).parent / "static"  # works no matter which folder you start from
 PROXIES_AFTER_VISITOR = 2  # Render's proxies add 2 IPs after the visitor's own
 
 
@@ -35,7 +37,7 @@ def client_ip(request: Request) -> str:
 limiter = Limiter(key_func=client_ip)
 app = FastAPI()
 app.state.limiter = limiter
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 client = genai.Client(  # reads GEMINI_API_KEY from the environment
     http_options=types.HttpOptions(
         timeout=60_000,  # milliseconds, per try
@@ -154,7 +156,7 @@ def make_quiz(text: str, count: int, difficulty: str):
 
 @app.get("/")
 def home():
-    return FileResponse("index.html")
+    return FileResponse(STATIC_DIR / "index.html")
 
 
 @app.get("/health")

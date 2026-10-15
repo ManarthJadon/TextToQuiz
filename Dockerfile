@@ -8,8 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py index.html ./
-COPY static ./static
+COPY app ./app
 
 RUN useradd --create-home appuser
 USER appuser
@@ -17,4 +16,4 @@ USER appuser
 EXPOSE 8000
 
 # Hosts set $PORT; 8000 is the local default.
-CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
