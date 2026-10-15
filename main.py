@@ -151,6 +151,14 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/debug-ip")  # TEMPORARY: remove after the Render IP check
+def debug_ip(request: Request):
+    return {
+        "forwarded_for": request.headers.get("x-forwarded-for"),
+        "seen_as": get_remote_address(request),
+    }
+
+
 @app.post("/quiz")
 @limiter.shared_limit(RATE_LIMIT, scope="quiz")
 def create_quiz(request: Request, req: QuizRequest):

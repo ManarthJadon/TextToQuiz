@@ -155,3 +155,5 @@ static/app.js    Form logic, quiz rendering, and scoring
 ## Built for learning smarter
 
 Text to Quiz helps turn passive reading into active learning. Whether you’re revising for an exam, preparing for interviews, or just testing your understanding, this app turns your material into a q[...]
+
+**Live demo:** https://texttoquiz.onrender.com
