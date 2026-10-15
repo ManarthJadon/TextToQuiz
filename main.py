@@ -20,8 +20,19 @@ RATE_LIMIT = "5/minute;15/day"  # per IP, shared by /quiz and /upload
 # Tried in order: each model has its own free quota, so a busy or used-up model falls through to the next
 MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
+PROXIES_AFTER_VISITOR = 2  # Render's proxies add 2 IPs after the visitor's own
+
+
+def client_ip(request: Request) -> str:
+    # Visitors can fake the start of X-Forwarded-For, but not what Render adds at the end
+    parts = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    if len(parts) > PROXIES_AFTER_VISITOR:
+        return parts[-PROXIES_AFTER_VISITOR - 1]
+    return get_remote_address(request)  # not behind Render (local runs): use the real connection
+
+
 # ponytail: in-memory counters work for one server instance; use Redis storage if we ever run several
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=client_ip)
 app = FastAPI()
 app.state.limiter = limiter
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -149,14 +160,6 @@ def home():
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
-
-@app.get("/debug-ip")  # TEMPORARY: remove after the Render IP check
-def debug_ip(request: Request):
-    return {
-        "forwarded_for": request.headers.get("x-forwarded-for"),
-        "seen_as": get_remote_address(request),
-    }
 
 
 @app.post("/quiz")

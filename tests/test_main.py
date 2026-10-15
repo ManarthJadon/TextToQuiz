@@ -193,3 +193,14 @@ def test_daily_limit(fake_gemini, monkeypatch):
         codes.append(api.post("/quiz", json={"text": TEXT}).status_code)
     assert codes == [200] * 15 + [429]
     assert "tomorrow" in api.post("/quiz", json={"text": TEXT}).json()["detail"]
+
+
+def test_client_ip_ignores_faked_header_entries():
+    def request(forwarded):
+        headers = {"x-forwarded-for": forwarded} if forwarded else {}
+        return SimpleNamespace(headers=headers, client=SimpleNamespace(host="127.0.0.1"))
+
+    # Render adds: visitor, Cloudflare, internal. Anything before the visitor is faked.
+    assert main.client_ip(request("1.2.3.4, 162.158.1.1, 10.0.0.1")) == "1.2.3.4"
+    assert main.client_ip(request("9.9.9.9,1.2.3.4, 162.158.1.1, 10.0.0.1")) == "1.2.3.4"
+    assert main.client_ip(request(None)) == "127.0.0.1"  # no proxy, e.g. running locally

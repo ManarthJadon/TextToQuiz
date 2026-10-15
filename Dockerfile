@@ -17,5 +17,4 @@ USER appuser
 EXPOSE 8000
 
 # Hosts set $PORT; 8000 is the local default.
-# --proxy-headers lets the rate limiter see the visitor's IP, not the host's proxy IP.
-CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
