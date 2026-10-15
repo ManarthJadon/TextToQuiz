@@ -1,23 +1,20 @@
-import io
 import os
 import time
 from types import SimpleNamespace
 
-os.environ.setdefault("GEMINI_API_KEY", "test-key")  # main.py creates the Gemini client on import
+os.environ.setdefault("GEMINI_API_KEY", "test-key")  # app/ai.py creates the Gemini client on import
 
 import limits.storage.memory
 import pytest
-from docx import Document
 from fastapi.testclient import TestClient
-from pptx import Presentation
 
-from app import main
+from app import ai, main
 
 api = TestClient(main.app)
 TEXT = "The sun is a star at the center of our solar system. " * 2
-FAKE_QUIZ = main.Quiz(
+FAKE_QUIZ = ai.Quiz(
     questions=[
-        main.Question(
+        ai.Question(
             question="What is the sun?",
             options=["A star", "A planet", "A moon", "A comet"],
             answer_index=0,
@@ -27,34 +24,18 @@ FAKE_QUIZ = main.Quiz(
 )
 
 
-def make_docx(text):
-    buf = io.BytesIO()
-    doc = Document()
-    doc.add_paragraph(text)
-    doc.save(buf)
-    return buf.getvalue()
-
-
-def make_pptx(text):
-    buf = io.BytesIO()
-    prs = Presentation()
-    slide = prs.slides.add_slide(prs.slide_layouts[5])
-    slide.shapes.title.text = text
-    prs.save(buf)
-    return buf.getvalue()
-
-
 def upload(name, data, **form):
     fields = {"count": "3", "difficulty": "easy", **form}
     return api.post("/upload", files={"file": (name, data)}, data=fields)
 
 
+def fake_client(generate_content):
+    return SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+
+
 @pytest.fixture
 def fake_gemini(monkeypatch):
-    fake = SimpleNamespace(
-        models=SimpleNamespace(generate_content=lambda **kw: SimpleNamespace(parsed=FAKE_QUIZ))
-    )
-    monkeypatch.setattr(main, "client", fake)
+    monkeypatch.setattr(ai, "client", fake_client(lambda **kw: SimpleNamespace(parsed=FAKE_QUIZ)))
 
 
 @pytest.fixture
@@ -62,45 +43,25 @@ def broken_gemini(monkeypatch):
     def boom(**kw):
         raise RuntimeError("Gemini is down")
 
-    monkeypatch.setattr(main, "client", SimpleNamespace(models=SimpleNamespace(generate_content=boom)))
+    monkeypatch.setattr(ai, "client", fake_client(boom))
+
 
 @pytest.fixture(autouse=True)
 def reset_limiter():
     main.limiter.reset()
 
-# --- extract_text ---
 
-def test_extract_txt_and_md():
-    assert main.extract_text("a.txt", b"hello") == "hello"
-    assert main.extract_text("a.MD", b"# hi") == "# hi"
-
-
-def test_extract_docx():
-    assert "sun" in main.extract_text("a.docx", make_docx(TEXT))
-
-
-def test_extract_pptx():
-    assert "sun" in main.extract_text("a.pptx", make_pptx(TEXT))
-
-def test_extract_docx_includes_tables():
-    buf = io.BytesIO()
-    doc = Document()
-    doc.add_paragraph("before")
-    doc.add_table(rows=1, cols=2).cell(0, 0).text = "Q1 what is x"
-    doc.save(buf)
-    assert "Q1 what is x" in main.extract_text("a.docx", buf.getvalue())
-
-
-def test_extract_unsupported_type():
-    with pytest.raises(ValueError):
-        main.extract_text("a.exe", b"x")
-
-
-# --- /quiz ---
+# --- pages ---
 
 def test_home_page():
     assert api.get("/").status_code == 200
 
+
+def test_health():
+    assert api.get("/health").json() == {"status": "ok"}
+
+
+# --- /quiz ---
 
 def test_quiz_ok(fake_gemini):
     r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
@@ -126,14 +87,38 @@ def test_quiz_bad_difficulty():
     assert api.post("/quiz", json={"text": TEXT, "difficulty": "insane"}).status_code == 400
 
 
+# --- Gemini problems ---
+
 def test_quiz_gemini_failure(broken_gemini):
     assert api.post("/quiz", json={"text": TEXT}).status_code == 502
 
 
+def test_quiz_falls_back_to_next_model(monkeypatch):
+    calls = []
+
+    def flaky(**kw):
+        calls.append(kw["model"])
+        if len(calls) == 1:
+            raise RuntimeError("first model is busy")
+        return SimpleNamespace(parsed=FAKE_QUIZ)
+
+    monkeypatch.setattr(ai, "client", fake_client(flaky))
+    r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
+    assert r.status_code == 200
+    assert calls == ai.MODELS[:2]
+
+
+def test_quiz_rejects_bad_answer_index(monkeypatch):
+    bad = ai.Quiz(questions=[FAKE_QUIZ.questions[0].model_copy(update={"answer_index": 7})])
+    monkeypatch.setattr(ai, "client", fake_client(lambda **kw: SimpleNamespace(parsed=bad)))
+    r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
+    assert r.status_code == 502
+
+
 # --- /upload ---
 
-def test_upload_docx_ok(fake_gemini):
-    r = upload("a.docx", make_docx(TEXT))
+def test_upload_ok(fake_gemini):
+    r = upload("notes.txt", TEXT.encode())
     assert r.status_code == 200
     assert r.json()["questions"][0]["question"] == "What is the sun?"
 
@@ -149,11 +134,8 @@ def test_upload_unreadable_file():
 def test_upload_too_large():
     assert upload("big.txt", b"a" * (main.MAX_UPLOAD_BYTES + 1)).status_code == 413
 
-# --- health and rate limit ---
 
-def test_health():
-    assert api.get("/health").json() == {"status": "ok"}
-
+# --- rate limits and visitor IP ---
 
 def test_rate_limit(fake_gemini):
     n = 5  # the per-minute limit
@@ -161,27 +143,6 @@ def test_rate_limit(fake_gemini):
     assert [r.status_code for r in responses] == [200] * n + [429]
     assert "wait a minute" in responses[-1].json()["detail"]
 
-def test_quiz_falls_back_to_next_model(monkeypatch):
-    calls = []
-
-    def flaky(**kw):
-        calls.append(kw["model"])
-        if len(calls) == 1:
-            raise RuntimeError("first model is busy")
-        return SimpleNamespace(parsed=FAKE_QUIZ)
-
-    monkeypatch.setattr(main, "client", SimpleNamespace(models=SimpleNamespace(generate_content=flaky)))
-    r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
-    assert r.status_code == 200
-    assert calls == main.MODELS[:2]
-
-
-def test_quiz_rejects_bad_answer_index(monkeypatch):
-    bad = main.Quiz(questions=[FAKE_QUIZ.questions[0].model_copy(update={"answer_index": 7})])
-    fake = SimpleNamespace(models=SimpleNamespace(generate_content=lambda **kw: SimpleNamespace(parsed=bad)))
-    monkeypatch.setattr(main, "client", fake)
-    r = api.post("/quiz", json={"text": TEXT, "count": 1, "difficulty": "easy"})
-    assert r.status_code == 502
 
 def test_daily_limit(fake_gemini, monkeypatch):
     clock = [time.time()]
