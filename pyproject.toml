@@ -1,0 +1,27 @@
+[project]
+name = "text-to-quiz"
+version = "0.1.0"
+description = "Turn study notes, PDFs, slides, and pasted text into a multiple-choice quiz."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "google-genai",
+    "pypdf",
+    "python-docx",
+    "python-pptx",
+    "python-multipart",
+    "slowapi",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "httpx",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

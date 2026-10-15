@@ -95,7 +95,7 @@ docker run --rm -p 8000:8000 -e GEMINI_API_KEY text-to-quiz
 ## Run the tests
 
 ```bash
-uv pip install -r requirements-dev.txt
+uv pip install --group dev
 ```
 
 ```bash
@@ -130,7 +130,8 @@ app/
 tests/             Automated tests (run with pytest)
 .github/workflows/ Runs the tests on every push
 Dockerfile         Builds the container the live site runs in
-requirements.in    Direct dependencies (requirements.txt is generated from it)
+pyproject.toml     Project info, dependencies, test tools, and test settings
+requirements.txt   Exact pinned versions (generated from pyproject.toml)
 ```
 
 ## ⚠️ Limitations
