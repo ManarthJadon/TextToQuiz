@@ -2,7 +2,9 @@
 
 Turn study notes, PDFs, slides, and pasted text into a smart multiple-choice quiz in seconds.
 
-Text to Quiz is a lightweight AI-powered study assistant that extracts text from your files, sends it to Google Gemini, and turns it into a quiz with instant scoring and explanations. It’s built for[...]
+**Live demo:** https://texttoquiz.onrender.com
+
+Text to Quiz is a lightweight AI-powered study assistant that extracts text from your files, sends it to Google Gemini, and turns it into a quiz with instant scoring and explanations. It’s built for students, self-learners, and anyone who wants a faster way to review material.
 
 ## Why use it?
 
@@ -37,6 +39,8 @@ This makes it easy to turn reading material into active recall practice in just 
 - FastAPI
 - Google Gemini API (`google-genai`)
 - Vanilla HTML, CSS, and JavaScript
+- Docker, hosted on Render
+- GitHub Actions for automatic tests
 
 ## Quick start
 
@@ -67,7 +71,7 @@ Open a new terminal after setting it.
 ### 4) Start the app
 
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 ```
 
 Then open:
@@ -75,6 +79,19 @@ Then open:
 ```text
 http://127.0.0.1:8000
 ```
+
+## Run with Docker
+
+```bash
+docker build -t text-to-quiz .
+```
+
+```bash
+docker run --rm -p 8000:8000 -e GEMINI_API_KEY text-to-quiz
+```
+
+`-e GEMINI_API_KEY` passes the key from your terminal into the container, so the key is never written in a file.
+
 ## Run the tests
 
 ```bash
@@ -85,13 +102,14 @@ uv pip install -r requirements-dev.txt
 pytest
 ```
 
-The tests use a fake Gemini client, so they need no API key and make no network calls.
+The tests use a fake Gemini client, so they need no API key and make no network calls. They also run automatically on every push to GitHub.
 
 ## API
 
 | Endpoint | Description |
 |---|---|
 | `GET /` | Loads the web interface |
+| `GET /health` | Health check used by the host |
 | `POST /quiz` | Accepts `{text, count, difficulty}` and returns a quiz |
 | `POST /upload` | Accepts a form upload with `file`, `count`, and `difficulty` |
 
@@ -104,15 +122,21 @@ http://127.0.0.1:8000/docs
 ## Project structure
 
 ```text
-main.py          FastAPI app, file parsing, and Gemini calls
-index.html       Frontend page layout
-static/style.css Styling and UI
-static/app.js    Form logic, quiz rendering, and scoring
+app/
+  main.py          FastAPI routes, input limits, and per-visitor rate limit
+  extract.py       Reads text from PDF, Word, PowerPoint, .txt and .md files
+  ai.py            Gemini calls, quiz schema, model fallback, and retries
+  static/          Frontend: index.html, style.css, app.js
+tests/             Automated tests (run with pytest)
+.github/workflows/ Runs the tests on every push
+Dockerfile         Builds the container the live site runs in
+requirements.in    Direct dependencies (requirements.txt is generated from it)
 ```
 
 ## ⚠️ Limitations
 
 - Text must be 50 to 200,000 characters, and uploads can be at most 10 MB.
+- Each visitor can make up to 5 quizzes per minute and 15 per day.
 - Scanned PDFs without selectable text are not supported.
 - Gemini can be busy at times and return an error. Try again in a moment.
 
@@ -123,10 +147,11 @@ static/app.js    Form logic, quiz rendering, and scoring
 - ~~Support long documents~~ Raised the limit to 200,000 characters
 - ~~Tests and Docker support~~
 - ~~Read tables in Word and PowerPoint files~~
+- ~~Launch a live demo~~
+- ~~Run the tests automatically on every push (GitHub Actions)~~
 
 **Next**
 
-- Launch a live demo
 - Refreshed design
 
 **Better learning**
@@ -147,13 +172,10 @@ static/app.js    Form logic, quiz rendering, and scoring
 **Platform**
 
 - Cache results to save API quota
-- Run the tests automatically on every push (GitHub Actions)
 - Export a quiz as PDF
 - User accounts and saved quiz history
 - Paid plans for higher usage
 
 ## Built for learning smarter
 
-Text to Quiz helps turn passive reading into active learning. Whether you’re revising for an exam, preparing for interviews, or just testing your understanding, this app turns your material into a q[...]
-
-**Live demo:** https://texttoquiz.onrender.com
+Text to Quiz helps turn passive reading into active learning. Whether you’re revising for an exam, preparing for interviews, or just testing your understanding, this app turns your material into a quick, interactive quiz experience.
