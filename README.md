@@ -2,9 +2,9 @@
 
 Turn study notes, PDFs, slides, and pasted text into a smart multiple-choice quiz in seconds.
 
-**Live demo:** https://texttoquiz.onrender.com
-
 Text to Quiz is a lightweight AI-powered study assistant that extracts text from your files, sends it to Google Gemini, and turns it into a quiz with instant scoring and explanations. It’s built for students, self-learners, and anyone who wants a faster way to review material.
+
+**Live demo:** https://texttoquiz.onrender.com
 
 ## Why use it?
 
