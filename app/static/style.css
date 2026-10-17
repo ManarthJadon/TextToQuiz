@@ -2,11 +2,37 @@ body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; 
 label { display: block; margin-top: 1rem; }
 textarea { width: 100%; height: 120px; }
 button { margin-top: 1rem; padding: .5rem 1rem; }
+
+/* Quiz | Flashcards switch: radio buttons that look like tabs */
+.modes { display: flex; gap: .5rem; border: 0; padding: 0; margin: 0; }
+.modes label { margin: 0; padding: .5rem 1rem; border: 1px solid #888; border-radius: 6px; cursor: pointer; }
+.modes input { position: absolute; opacity: 0; }
+.modes label:has(input:checked) { background: #222; border-color: #222; color: #fff; }
+.modes label:has(input:focus-visible) { outline: 2px solid #4a90e2; outline-offset: 2px; }
+
+/* Quiz */
 .q { margin-top: 1.5rem; }
 .q label { margin-top: .3rem; padding: .2rem .4rem; border-radius: 4px; }
 .q p { margin: .5rem 0 0; color: #444; font-size: .95rem; }
 .correct { background: #d4f5d4; }
 .wrong { background: #f8d0d0; }
+
+/* Flashcards: a grid of cards that flip when clicked */
+#cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.card { margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; perspective: 800px; }
+.card-inner { display: grid; height: 100%; transition: transform .4s; transform-style: preserve-3d; }
+.card.flipped .card-inner { transform: rotateY(180deg); }
+.card-face {
+  grid-area: 1 / 1; /* both faces share one spot, so the card is as tall as its longest side */
+  display: flex; align-items: center; justify-content: center;
+  min-height: 140px; padding: 1rem; border: 1px solid #ccc; border-radius: 8px;
+  text-align: center; backface-visibility: hidden;
+}
+.card-front { background: #fff; font-weight: bold; }
+.card-back { background: #f3f7ff; transform: rotateY(180deg); }
+.card:focus-visible { outline: 2px solid #4a90e2; outline-offset: 2px; border-radius: 8px; }
+@media (prefers-reduced-motion: reduce) { .card-inner { transition: none; } }
+
 #status { margin-top: 1rem; color: #b00; }
 #score { margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }
 .notice { margin-top: 1rem; font-size: .85rem; color: #666; }

@@ -9,6 +9,11 @@
 <body>
   <h1>Text to Quiz</h1>
 
+  <fieldset class="modes" aria-label="What to make">
+    <label><input type="radio" name="mode" value="quiz" checked> Quiz</label>
+    <label><input type="radio" name="mode" value="flashcards"> Flashcards</label>
+  </fieldset>
+
   <label>Upload a file (.pdf, .docx, .pptx, .txt, .md)
     <input type="file" id="file" accept=".pdf,.docx,.pptx,.txt,.md">
   </label>
@@ -22,15 +27,16 @@
       <option>hard</option>
     </select>
   </label>
-  <label>Number of questions
+  <label><span id="count-label">Number of questions</span>
     <input type="number" id="count" value="5" min="1" max="20">
   </label>
   <button id="go">Make quiz</button>
-      <p class="notice">AI-generated quizzes can contain mistakes, so double-check the answers. Your text is sent to Google Gemini, so please don't upload private or sensitive documents.</p>
+  <p class="notice">AI-generated quizzes and flashcards can contain mistakes, so double-check the answers. Your text is sent to Google Gemini, so please don't upload private or sensitive documents.</p>
 
   <div id="status"></div>
   <div id="score"></div>
   <div id="quiz"></div>
+  <div id="cards"></div>
 
   <script src="/static/app.js"></script>
 </body>
