@@ -22,6 +22,9 @@ FAKE_QUIZ = ai.Quiz(
         )
     ]
 )
+FAKE_DECK = ai.Flashcards(
+    cards=[ai.Flashcard(front="Sun", back="The star at the center of our solar system.")]
+)
 
 
 def upload(name, data, **form):
@@ -33,9 +36,15 @@ def fake_client(generate_content):
     return SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
 
 
+def fake_answer(**kw):
+    # Answer in whatever shape the app asked for: a quiz or a flashcard deck
+    schema = kw["config"].response_schema
+    return SimpleNamespace(parsed=FAKE_QUIZ if schema is ai.Quiz else FAKE_DECK)
+
+
 @pytest.fixture
 def fake_gemini(monkeypatch):
-    monkeypatch.setattr(ai, "client", fake_client(lambda **kw: SimpleNamespace(parsed=FAKE_QUIZ)))
+    monkeypatch.setattr(ai, "client", fake_client(fake_answer))
 
 
 @pytest.fixture
@@ -85,6 +94,33 @@ def test_quiz_bad_count(count):
 
 def test_quiz_bad_difficulty():
     assert api.post("/quiz", json={"text": TEXT, "difficulty": "insane"}).status_code == 400
+
+
+def test_quiz_bad_mode():
+    r = api.post("/quiz", json={"text": TEXT, "mode": "poem"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Mode must be quiz or flashcards"
+
+
+# --- flashcards ---
+
+def test_flashcards_ok(fake_gemini):
+    r = api.post("/quiz", json={"text": TEXT, "count": 1, "mode": "flashcards"})
+    assert r.status_code == 200
+    assert r.json()["cards"][0]["front"] == "Sun"
+
+
+def test_upload_flashcards_ok(fake_gemini):
+    r = upload("notes.txt", TEXT.encode(), mode="flashcards")
+    assert r.status_code == 200
+    assert r.json()["cards"][0]["back"] == "The star at the center of our solar system."
+
+
+def test_flashcards_reject_blank_card(monkeypatch):
+    blank = ai.Flashcards(cards=[ai.Flashcard(front="Sun", back="   ")])
+    monkeypatch.setattr(ai, "client", fake_client(lambda **kw: SimpleNamespace(parsed=blank)))
+    r = api.post("/quiz", json={"text": TEXT, "mode": "flashcards"})
+    assert r.status_code == 502
 
 
 # --- Gemini problems ---
@@ -142,6 +178,13 @@ def test_rate_limit(fake_gemini):
     responses = [api.post("/quiz", json={"text": TEXT}) for _ in range(n + 1)]
     assert [r.status_code for r in responses] == [200] * n + [429]
     assert "wait a minute" in responses[-1].json()["detail"]
+
+
+def test_rate_limit_shared_by_quiz_and_flashcards(fake_gemini):
+    for _ in range(5):  # use up the per-minute limit with quizzes
+        assert api.post("/quiz", json={"text": TEXT}).status_code == 200
+    r = api.post("/quiz", json={"text": TEXT, "mode": "flashcards"})
+    assert r.status_code == 429
 
 
 def test_daily_limit(fake_gemini, monkeypatch):

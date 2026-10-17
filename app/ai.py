@@ -30,6 +30,15 @@ class Quiz(BaseModel):
     questions: list[Question]
 
 
+class Flashcard(BaseModel):
+    front: str
+    back: str
+
+
+class Flashcards(BaseModel):
+    cards: list[Flashcard]
+
+
 def generate(prompt: str, schema, is_valid):
     """Asks each model in turn for an answer shaped like `schema`; returns the first one `is_valid` accepts."""
     error = None
@@ -75,3 +84,21 @@ def make_quiz(text: str, count: int, difficulty: str) -> Quiz:
         f"Spread the questions across the whole text.\n\n{text}"
     )
     return generate(prompt, Quiz, quiz_is_valid)
+
+
+def flashcards_are_valid(deck: Flashcards) -> bool:
+    # Only accept decks the page can show: every card has text on both sides
+    return bool(deck.cards) and all(c.front.strip() and c.back.strip() for c in deck.cards)
+
+
+def make_flashcards(text: str, count: int, difficulty: str) -> Flashcards:
+    prompt = (
+        f"Make {count} flashcards at {difficulty} difficulty from the text below. "
+        f"For key terms, put the term on the front and its definition on the back. "
+        f"For ideas, processes and facts, put a short question on the front and a "
+        f"1-2 sentence answer on the back. Easy cards cover the core terms and main "
+        f"ideas; hard cards also cover finer details. Ignore general instructions, "
+        f"headers, page numbers, marks, time limits and formatting notes. "
+        f"Spread the cards across the whole text.\n\n{text}"
+    )
+    return generate(prompt, Flashcards, flashcards_are_valid)
