@@ -25,6 +25,11 @@ FAKE_QUIZ = ai.Quiz(
 FAKE_DECK = ai.Flashcards(
     cards=[ai.Flashcard(front="Sun", back="The star at the center of our solar system.")]
 )
+FAKE_NOTES = ai.Notes(
+    summary="The sun is the star at the center of our solar system.",
+    sections=[ai.Section(heading="The sun", points=[ai.Point(text="The sun is a star", important=True)])],
+    key_terms=[ai.Term(term="Star", meaning="A huge ball of hot gas that gives off light")],
+)
 
 
 def upload(name, data, **form):
@@ -37,9 +42,9 @@ def fake_client(generate_content):
 
 
 def fake_answer(**kw):
-    # Answer in whatever shape the app asked for: a quiz or a flashcard deck
-    schema = kw["config"].response_schema
-    return SimpleNamespace(parsed=FAKE_QUIZ if schema is ai.Quiz else FAKE_DECK)
+    # Answer in whatever shape the app asked for: a quiz, a flashcard deck or notes
+    answers = {ai.Quiz: FAKE_QUIZ, ai.Flashcards: FAKE_DECK, ai.Notes: FAKE_NOTES}
+    return SimpleNamespace(parsed=answers[kw["config"].response_schema])
 
 
 @pytest.fixture
@@ -99,7 +104,7 @@ def test_quiz_bad_difficulty():
 def test_quiz_bad_mode():
     r = api.post("/quiz", json={"text": TEXT, "mode": "poem"})
     assert r.status_code == 400
-    assert r.json()["detail"] == "Mode must be quiz or flashcards"
+    assert r.json()["detail"] == "Mode must be quiz, flashcards or notes"
 
 
 # --- flashcards ---
@@ -120,6 +125,53 @@ def test_flashcards_reject_blank_card(monkeypatch):
     blank = ai.Flashcards(cards=[ai.Flashcard(front="Sun", back="   ")])
     monkeypatch.setattr(ai, "client", fake_client(lambda **kw: SimpleNamespace(parsed=blank)))
     r = api.post("/quiz", json={"text": TEXT, "mode": "flashcards"})
+    assert r.status_code == 502
+
+
+# --- study notes ---
+
+def test_notes_ok(fake_gemini):
+    r = api.post("/quiz", json={"text": TEXT, "mode": "notes", "detail": "short"})
+    assert r.status_code == 200
+    notes = r.json()
+    assert notes["sections"][0]["points"][0] == {"text": "The sun is a star", "important": True}
+    assert notes["key_terms"][0]["term"] == "Star"
+
+
+def test_upload_notes_ok(fake_gemini):
+    r = upload("notes.txt", TEXT.encode(), mode="notes", detail="detailed")
+    assert r.status_code == 200
+    assert r.json()["summary"] == FAKE_NOTES.summary
+
+
+def test_notes_detail_reaches_prompt(monkeypatch):
+    prompts = []
+
+    def remember(**kw):
+        prompts.append(kw["contents"])
+        return SimpleNamespace(parsed=FAKE_NOTES)
+
+    monkeypatch.setattr(ai, "client", fake_client(remember))
+    api.post("/quiz", json={"text": TEXT, "mode": "notes", "detail": "detailed"})
+    assert ai.DETAIL["detailed"] in prompts[0]
+
+
+def test_notes_ignore_count_and_difficulty(fake_gemini):
+    # The page hides these fields in notes mode, so leftover values must not cause errors
+    r = api.post("/quiz", json={"text": TEXT, "mode": "notes", "count": 99, "difficulty": "insane"})
+    assert r.status_code == 200
+
+
+def test_notes_bad_detail():
+    r = api.post("/quiz", json={"text": TEXT, "mode": "notes", "detail": "huge"})
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Detail must be short, standard or detailed"
+
+
+def test_notes_reject_empty_sections(monkeypatch):
+    empty = FAKE_NOTES.model_copy(update={"sections": []})
+    monkeypatch.setattr(ai, "client", fake_client(lambda **kw: SimpleNamespace(parsed=empty)))
+    r = api.post("/quiz", json={"text": TEXT, "mode": "notes"})
     assert r.status_code == 502
 
 

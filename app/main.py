@@ -17,7 +17,7 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 RATE_LIMIT = "5/minute;15/day"  # per IP, shared by /quiz and /upload
 STATIC_DIR = Path(__file__).parent / "static"  # works no matter which folder you start from
 PROXIES_AFTER_VISITOR = 2  # Render's proxies add 2 IPs after the visitor's own
-MAKERS = {"quiz": ai.make_quiz, "flashcards": ai.make_flashcards}  # mode -> function that makes it
+MAKERS = {"quiz": ai.make_quiz, "flashcards": ai.make_flashcards}  # modes that use count and difficulty
 
 
 def client_ip(request: Request) -> str:
@@ -40,6 +40,7 @@ class QuizRequest(BaseModel):
     count: int = 5
     difficulty: str = "medium"
     mode: str = "quiz"
+    detail: str = "standard"
 
 
 @app.exception_handler(RateLimitExceeded)
@@ -51,15 +52,19 @@ def rate_limited(request: Request, exc: RateLimitExceeded):
     return JSONResponse({"detail": message}, status_code=429)
 
 
-def checked_make(text: str, count: int, difficulty: str, mode: str):
+def checked_make(text: str, count: int, difficulty: str, mode: str, detail: str):
     if not 50 <= len(text) <= MAX_CHARS:
         raise HTTPException(400, f"Text must be 50 to {MAX_CHARS:,} characters")
+    if mode == "notes":  # notes have a detail level instead of a count and difficulty
+        if detail not in ai.DETAIL:
+            raise HTTPException(400, "Detail must be short, standard or detailed")
+        return ai.make_notes(text, detail)
+    if mode not in MAKERS:
+        raise HTTPException(400, "Mode must be quiz, flashcards or notes")
     if not 1 <= count <= 20:
         raise HTTPException(400, "Count must be 1 to 20")
     if difficulty not in ("easy", "medium", "hard"):
         raise HTTPException(400, "Difficulty must be easy, medium or hard")
-    if mode not in MAKERS:
-        raise HTTPException(400, "Mode must be quiz or flashcards")
     return MAKERS[mode](text, count, difficulty)
 
 
@@ -76,7 +81,7 @@ def health():
 @app.post("/quiz")
 @limiter.shared_limit(RATE_LIMIT, scope="quiz")
 def create_quiz(request: Request, req: QuizRequest):
-    return checked_make(req.text, req.count, req.difficulty, req.mode)
+    return checked_make(req.text, req.count, req.difficulty, req.mode, req.detail)
 
 
 @app.post("/upload")
@@ -87,6 +92,7 @@ def upload(
     count: int = Form(5),
     difficulty: str = Form("medium"),
     mode: str = Form("quiz"),
+    detail: str = Form("standard"),
 ):
     data = file.file.read(MAX_UPLOAD_BYTES + 1)
     if len(data) > MAX_UPLOAD_BYTES:
@@ -97,4 +103,4 @@ def upload(
         raise HTTPException(400, str(e))
     except Exception:
         raise HTTPException(400, "Could not read this file")
-    return checked_make(text, count, difficulty, mode)
+    return checked_make(text, count, difficulty, mode, detail)

@@ -7,6 +7,13 @@ from pydantic import BaseModel
 # Tried in order: each model has its own free quota, so a busy or used-up model falls through to the next
 MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"]
 
+# How long study notes should be, as told to Gemini
+DETAIL = {
+    "short": "Keep it brief: only the main points, about 2 to 4 per topic.",
+    "standard": "Cover the main points and the important supporting details.",
+    "detailed": "Be thorough: cover all important details, examples and definitions.",
+}
+
 client = genai.Client(  # reads GEMINI_API_KEY from the environment
     http_options=types.HttpOptions(
         timeout=60_000,  # milliseconds, per try
@@ -37,6 +44,27 @@ class Flashcard(BaseModel):
 
 class Flashcards(BaseModel):
     cards: list[Flashcard]
+
+
+class Point(BaseModel):
+    text: str
+    important: bool
+
+
+class Section(BaseModel):
+    heading: str
+    points: list[Point]
+
+
+class Term(BaseModel):
+    term: str
+    meaning: str
+
+
+class Notes(BaseModel):
+    summary: str
+    sections: list[Section]
+    key_terms: list[Term]
 
 
 def generate(prompt: str, schema, is_valid):
@@ -102,3 +130,26 @@ def make_flashcards(text: str, count: int, difficulty: str) -> Flashcards:
         f"Spread the cards across the whole text.\n\n{text}"
     )
     return generate(prompt, Flashcards, flashcards_are_valid)
+
+
+def notes_are_valid(notes: Notes) -> bool:
+    # Only accept notes the page can show: a summary, and no empty headings, points or terms
+    return (
+        bool(notes.summary.strip() and notes.sections)
+        and all(s.heading.strip() and s.points for s in notes.sections)
+        and all(p.text.strip() for s in notes.sections for p in s.points)
+        and all(t.term.strip() and t.meaning.strip() for t in notes.key_terms)
+    )
+
+
+def make_notes(text: str, detail: str) -> Notes:
+    prompt = (
+        f"Write study notes from the text below. Start with a 2-3 sentence summary. "
+        f"Then make one section per topic, with a short heading and bullet points. "
+        f"Mark as important the points most likely to come up in an exam. "
+        f"{DETAIL[detail]} List the key terms with a one-line meaning for each. "
+        f"Use only information from the text. Ignore general instructions, headers, "
+        f"page numbers, marks, time limits and formatting notes. "
+        f"Cover the whole text, in its order.\n\n{text}"
+    )
+    return generate(prompt, Notes, notes_are_valid)
