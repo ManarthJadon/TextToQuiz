@@ -2,8 +2,9 @@ body { font-family: system-ui, sans-serif; max-width: 700px; margin: 2rem auto; 
 label { display: block; margin-top: 1rem; }
 textarea { width: 100%; height: 120px; }
 button { margin-top: 1rem; padding: .5rem 1rem; }
+[hidden] { display: none !important; } /* keeps `hidden` working on labels, which we set to display: block */
 
-/* Quiz | Flashcards switch: radio buttons that look like tabs */
+/* Mode switch: radio buttons that look like tabs */
 .modes { display: flex; gap: .5rem; border: 0; padding: 0; margin: 0; }
 .modes label { margin: 0; padding: .5rem 1rem; border: 1px solid #888; border-radius: 6px; cursor: pointer; }
 .modes input { position: absolute; opacity: 0; }
@@ -32,6 +33,23 @@ button { margin-top: 1rem; padding: .5rem 1rem; }
 .card-back { background: #f3f7ff; transform: rotateY(180deg); }
 .card:focus-visible { outline: 2px solid #4a90e2; outline-offset: 2px; border-radius: 8px; }
 @media (prefers-reduced-motion: reduce) { .card-inner { transition: none; } }
+
+/* Study notes */
+.notes-actions { display: flex; gap: .5rem; }
+.summary { margin: 1rem 0 0; padding: .75rem 1rem; background: #f6f6f6; border-radius: 6px; }
+.legend { margin: .5rem 0 0; font-size: .85rem; color: #666; }
+#notes h2 { margin: 1.5rem 0 .5rem; font-size: 1.15rem; }
+#notes ul { margin: 0; padding-left: 1.5rem; }
+#notes li { margin: .3rem 0; }
+#notes li.important { list-style-type: "★  "; font-weight: 600; }
+#notes dt { margin-top: .5rem; font-weight: bold; }
+#notes dd { margin: 0 0 0 1rem; }
+
+/* Printing (and "Save as PDF"): only the notes, without the buttons */
+@media print {
+  body { margin: 0; max-width: none; }
+  body > :not(#notes), .notes-actions { display: none !important; }
+}
 
 #status { margin-top: 1rem; color: #b00; }
 #score { margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }

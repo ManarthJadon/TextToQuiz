@@ -12,6 +12,7 @@
   <fieldset class="modes" aria-label="What to make">
     <label><input type="radio" name="mode" value="quiz" checked> Quiz</label>
     <label><input type="radio" name="mode" value="flashcards"> Flashcards</label>
+    <label><input type="radio" name="mode" value="notes"> Notes</label>
   </fieldset>
 
   <label>Upload a file (.pdf, .docx, .pptx, .txt, .md)
@@ -20,23 +21,31 @@
   <label>Or paste text
     <textarea id="text"></textarea>
   </label>
-  <label>Difficulty
+  <label id="difficulty-field">Difficulty
     <select id="difficulty">
       <option>easy</option>
       <option selected>medium</option>
       <option>hard</option>
     </select>
   </label>
-  <label><span id="count-label">Number of questions</span>
+  <label id="count-field"><span id="count-label">Number of questions</span>
     <input type="number" id="count" value="5" min="1" max="20">
   </label>
+  <label id="detail-field" hidden>Detail
+    <select id="detail">
+      <option>short</option>
+      <option selected>standard</option>
+      <option>detailed</option>
+    </select>
+  </label>
   <button id="go">Make quiz</button>
-  <p class="notice">AI-generated quizzes and flashcards can contain mistakes, so double-check the answers. Your text is sent to Google Gemini, so please don't upload private or sensitive documents.</p>
+  <p class="notice">AI-generated quizzes, flashcards and notes can contain mistakes, so double-check them. Your text is sent to Google Gemini, so please don't upload private or sensitive documents.</p>
 
   <div id="status"></div>
   <div id="score"></div>
   <div id="quiz"></div>
   <div id="cards"></div>
+  <div id="notes"></div>
 
   <script src="/static/app.js"></script>
 </body>
