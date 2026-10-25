@@ -1,3 +1,4 @@
+import io
 import os
 import time
 from types import SimpleNamespace
@@ -7,6 +8,7 @@ os.environ.setdefault("GEMINI_API_KEY", "test-key")  # app/ai.py creates the Gem
 import limits.storage.memory
 import pytest
 from fastapi.testclient import TestClient
+from pypdf import PdfWriter
 
 from app import ai, main
 
@@ -37,6 +39,12 @@ def upload(name, data, **form):
     return api.post("/upload", files={"file": (name, data)}, data=fields)
 
 
+def upload_many(files, **form):
+    # Several files under the same field name "file", like the page sends photos
+    fields = {"count": "3", "difficulty": "easy", **form}
+    return api.post("/upload", files=[("file", f) for f in files], data=fields)
+
+
 def fake_client(generate_content):
     return SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
 
@@ -50,6 +58,19 @@ def fake_answer(**kw):
 @pytest.fixture
 def fake_gemini(monkeypatch):
     monkeypatch.setattr(ai, "client", fake_client(fake_answer))
+
+
+@pytest.fixture
+def sent(monkeypatch):
+    # A fake Gemini that also remembers what the app sent it
+    contents = []
+
+    def remember(**kw):
+        contents.append(kw["contents"])
+        return fake_answer(**kw)
+
+    monkeypatch.setattr(ai, "client", fake_client(remember))
+    return contents
 
 
 @pytest.fixture
@@ -221,6 +242,43 @@ def test_upload_unreadable_file():
 
 def test_upload_too_large():
     assert upload("big.txt", b"a" * (main.MAX_UPLOAD_BYTES + 1)).status_code == 413
+
+
+# --- photos and scanned PDFs ---
+
+def test_upload_photos_sent_as_images(sent):
+    r = upload_many([("page1.jpg", b"img1"), ("page2.png", b"img2")])
+    assert r.status_code == 200
+    *photos, instructions = sent[0]
+    assert [p.inline_data.mime_type for p in photos] == ["image/jpeg", "image/png"]
+    assert [p.inline_data.data for p in photos] == [b"img1", b"img2"]
+    assert "multiple-choice" in instructions
+
+
+def test_upload_scanned_pdf_sent_as_pdf(sent):
+    buf = io.BytesIO()
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)  # a page with no text, like a scan
+    writer.write(buf)
+    r = upload("scan.pdf", buf.getvalue(), mode="notes")
+    assert r.status_code == 200
+    assert sent[0][0].inline_data.mime_type == "application/pdf"
+
+
+def test_upload_text_still_sent_as_text(sent):
+    upload("notes.txt", TEXT.encode())
+    assert isinstance(sent[0], str) and TEXT in sent[0]
+
+
+def test_upload_photo_mixed_with_document():
+    r = upload_many([("page.jpg", b"x"), ("notes.txt", TEXT.encode())])
+    assert r.status_code == 400
+    assert "one document" in r.json()["detail"]
+
+
+def test_upload_photos_too_large_together():
+    half = b"a" * (main.MAX_UPLOAD_BYTES // 2 + 1)  # each photo is fine, both together are not
+    assert upload_many([("a.jpg", half), ("b.jpg", half)]).status_code == 413
 
 
 # --- rate limits and visitor IP ---

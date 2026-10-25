@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app import ai
-from app.extract import extract_text
+from app.extract import prepare_upload
 
 MAX_CHARS = 200_000
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -52,20 +52,21 @@ def rate_limited(request: Request, exc: RateLimitExceeded):
     return JSONResponse({"detail": message}, status_code=429)
 
 
-def checked_make(text: str, count: int, difficulty: str, mode: str, detail: str):
-    if not 50 <= len(text) <= MAX_CHARS:
+def checked_make(source, count: int, difficulty: str, mode: str, detail: str):
+    # source is text, or a list of photos / a scanned PDF (only text has a length to check)
+    if isinstance(source, str) and not 50 <= len(source) <= MAX_CHARS:
         raise HTTPException(400, f"Text must be 50 to {MAX_CHARS:,} characters")
     if mode == "notes":  # notes have a detail level instead of a count and difficulty
         if detail not in ai.DETAIL:
             raise HTTPException(400, "Detail must be short, standard or detailed")
-        return ai.make_notes(text, detail)
+        return ai.make_notes(source, detail)
     if mode not in MAKERS:
         raise HTTPException(400, "Mode must be quiz, flashcards or notes")
     if not 1 <= count <= 20:
         raise HTTPException(400, "Count must be 1 to 20")
     if difficulty not in ("easy", "medium", "hard"):
         raise HTTPException(400, "Difficulty must be easy, medium or hard")
-    return MAKERS[mode](text, count, difficulty)
+    return MAKERS[mode](source, count, difficulty)
 
 
 @app.get("/")
@@ -88,19 +89,23 @@ def create_quiz(request: Request, req: QuizRequest):
 @limiter.shared_limit(RATE_LIMIT, scope="quiz")
 def upload(
     request: Request,
-    file: UploadFile = File(...),
+    file: list[UploadFile] = File(...),  # one document, or several photos under the same field name
     count: int = Form(5),
     difficulty: str = Form("medium"),
     mode: str = Form("quiz"),
     detail: str = Form("standard"),
 ):
-    data = file.file.read(MAX_UPLOAD_BYTES + 1)
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(413, "File is too large (max 10 MB)")
+    files, total = [], 0
+    for f in file:
+        data = f.file.read(MAX_UPLOAD_BYTES + 1 - total)  # never read more than the limit allows
+        total += len(data)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, "File is too large (max 10 MB)")
+        files.append((f.filename, data))
     try:
-        text = extract_text(file.filename, data)
+        source = prepare_upload(files)
     except ValueError as e:
         raise HTTPException(400, str(e))
     except Exception:
         raise HTTPException(400, "Could not read this file")
-    return checked_make(text, count, difficulty, mode, detail)
+    return checked_make(source, count, difficulty, mode, detail)

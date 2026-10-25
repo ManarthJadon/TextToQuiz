@@ -67,14 +67,22 @@ class Notes(BaseModel):
     key_terms: list[Term]
 
 
-def generate(prompt: str, schema, is_valid):
+def build_contents(instructions: str, source):
+    """What we send to Gemini: the instructions plus the text, or plus the photos / scanned PDF as files."""
+    if isinstance(source, str):
+        return f"{instructions}\n\n{source}"
+    files = [types.Part.from_bytes(data=data, mime_type=mime) for data, mime in source]
+    return [*files, instructions]
+
+
+def generate(contents, schema, is_valid):
     """Asks each model in turn for an answer shaped like `schema`; returns the first one `is_valid` accepts."""
     error = None
     for model in MODELS:
         try:
             response = client.models.generate_content(
                 model=model,
-                contents=prompt,
+                contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=schema,
@@ -103,15 +111,15 @@ def quiz_is_valid(quiz: Quiz) -> bool:
     )
 
 
-def make_quiz(text: str, count: int, difficulty: str) -> Quiz:
+def make_quiz(source, count: int, difficulty: str) -> Quiz:
     prompt = (
         f"Make {count} multiple-choice questions at {difficulty} difficulty "
-        f"from the text below. Give 4 options per question, with exactly one correct. "
-        f"Ask about the subject matter and ideas in the text. Ignore general "
+        f"from the study material. Give 4 options per question, with exactly one correct. "
+        f"Ask about the subject matter and ideas in the material. Ignore general "
         f"instructions, headers, page numbers, marks, time limits and formatting notes. "
-        f"Spread the questions across the whole text.\n\n{text}"
+        f"Spread the questions across the whole material."
     )
-    return generate(prompt, Quiz, quiz_is_valid)
+    return generate(build_contents(prompt, source), Quiz, quiz_is_valid)
 
 
 def flashcards_are_valid(deck: Flashcards) -> bool:
@@ -119,17 +127,17 @@ def flashcards_are_valid(deck: Flashcards) -> bool:
     return bool(deck.cards) and all(c.front.strip() and c.back.strip() for c in deck.cards)
 
 
-def make_flashcards(text: str, count: int, difficulty: str) -> Flashcards:
+def make_flashcards(source, count: int, difficulty: str) -> Flashcards:
     prompt = (
-        f"Make {count} flashcards at {difficulty} difficulty from the text below. "
+        f"Make {count} flashcards at {difficulty} difficulty from the study material. "
         f"For key terms, put the term on the front and its definition on the back. "
         f"For ideas, processes and facts, put a short question on the front and a "
         f"1-2 sentence answer on the back. Easy cards cover the core terms and main "
         f"ideas; hard cards also cover finer details. Ignore general instructions, "
         f"headers, page numbers, marks, time limits and formatting notes. "
-        f"Spread the cards across the whole text.\n\n{text}"
+        f"Spread the cards across the whole material."
     )
-    return generate(prompt, Flashcards, flashcards_are_valid)
+    return generate(build_contents(prompt, source), Flashcards, flashcards_are_valid)
 
 
 def notes_are_valid(notes: Notes) -> bool:
@@ -142,14 +150,14 @@ def notes_are_valid(notes: Notes) -> bool:
     )
 
 
-def make_notes(text: str, detail: str) -> Notes:
+def make_notes(source, detail: str) -> Notes:
     prompt = (
-        f"Write study notes from the text below. Start with a 2-3 sentence summary. "
+        f"Write study notes from the study material. Start with a 2-3 sentence summary. "
         f"Then make one section per topic, with a short heading and bullet points. "
         f"Mark as important the points most likely to come up in an exam. "
         f"{DETAIL[detail]} List the key terms with a one-line meaning for each. "
-        f"Use only information from the text. Ignore general instructions, headers, "
+        f"Use only information from the material. Ignore general instructions, headers, "
         f"page numbers, marks, time limits and formatting notes. "
-        f"Cover the whole text, in its order.\n\n{text}"
+        f"Cover the whole material, in its order."
     )
-    return generate(prompt, Notes, notes_are_valid)
+    return generate(build_contents(prompt, source), Notes, notes_are_valid)
