@@ -195,7 +195,6 @@ requirements.txt   Exact pinned versions (generated from pyproject.toml)
 - Export a quiz as PDF
 - User accounts and saved quiz history
 - Paid plans for higher usage
-- Refreshed design
 
 ## Built for learning smarter
 
