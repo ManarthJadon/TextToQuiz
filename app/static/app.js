@@ -151,7 +151,7 @@ async function make() {
   $("quiz").innerHTML = "";
   $("cards").innerHTML = "";
   $("notes").innerHTML = "";
-  const file = $("file").files[0];
+  const files = [...$("file").files];  // everything the student picked: one document, or several photos
   // Only send the fields this mode uses, so a hidden field can never cause an error
   const fields = chosenMode === "notes"
     ? { mode: chosenMode, detail: $("detail").value }
@@ -159,9 +159,9 @@ async function make() {
 
   let res;
   try {
-    if (file) {
+    if (files.length) {
       const form = new FormData();
-      form.append("file", file);
+      files.forEach(f => form.append("file", f));  // same name for each, so the server gets them as a list
       for (const [name, value] of Object.entries(fields)) form.append(name, value);
       res = await fetch("/upload", { method: "POST", body: form });
     } else {

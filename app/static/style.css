@@ -54,3 +54,5 @@ button { margin-top: 1rem; padding: .5rem 1rem; }
 #status { margin-top: 1rem; color: #b00; }
 #score { margin-top: 1rem; font-size: 1.2rem; font-weight: bold; }
 .notice { margin-top: 1rem; font-size: .85rem; color: #666; }
+
+.hint { display: block; margin-top: .2rem; font-size: .85rem; color: #666; }

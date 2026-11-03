@@ -15,8 +15,9 @@
     <label><input type="radio" name="mode" value="notes"> Notes</label>
   </fieldset>
 
-  <label>Upload a file (.pdf, .docx, .pptx, .txt, .md)
-    <input type="file" id="file" accept=".pdf,.docx,.pptx,.txt,.md">
+  <label>Upload a file or photos
+    <small class="hint">One document (.pdf, .docx, .pptx, .txt, .md), or up to 10 photos of your notes (.jpg, .png, .webp, .heic)</small>
+    <input type="file" id="file" multiple accept=".pdf,.docx,.pptx,.txt,.md,.jpg,.jpeg,.png,.webp,.heic">
   </label>
   <label>Or paste text
     <textarea id="text"></textarea>
@@ -39,7 +40,7 @@
     </select>
   </label>
   <button id="go">Make quiz</button>
-  <p class="notice">AI-generated quizzes, flashcards and notes can contain mistakes, so double-check them. Your text is sent to Google Gemini, so please don't upload private or sensitive documents.</p>
+  <p class="notice">AI-generated quizzes, flashcards and notes can contain mistakes, so double-check them. Your text, files and photos are sent to Google Gemini, so please don't upload private or sensitive documents.</p>
 
   <div id="status"></div>
   <div id="score"></div>
