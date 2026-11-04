@@ -1,14 +1,15 @@
 # Text to Quiz
 
-Turn study notes, PDFs, slides, and pasted text into a smart multiple-choice quiz, a deck of flashcards, or clear study notes in seconds.
+Turn study notes, PDFs, slides, photos of handwritten notes, and pasted text into a smart multiple-choice quiz, a deck of flashcards, or clear study notes in seconds.
 
-Text to Quiz is a lightweight AI-powered study assistant that extracts text from your files, sends it to Google Gemini, and turns it into a quiz with instant scoring and explanations, flashcards you flip to test yourself, or study notes with the key points marked. It’s built for students, self-learners, and anyone who wants a faster way to review material.
+Text to Quiz is a lightweight AI-powered study assistant that reads your files and photos, sends them to Google Gemini, and turns them into a quiz with instant scoring and explanations, flashcards you flip to test yourself, or study notes with the key points marked. It’s built for students, self-learners, and anyone who wants a faster way to review material.
 
 **Live demo:** https://texttoquiz.onrender.com
 
 ## Why use it?
 
 - Upload notes, PDFs, Word docs, slides, or plain text
+- Snap photos of handwritten or printed notes and use them directly
 - Generate quiz questions in different difficulty levels
 - Test your knowledge with instant feedback
 - Review explanations for every answer
@@ -18,7 +19,7 @@ Text to Quiz is a lightweight AI-powered study assistant that extracts text from
 
 ## How it works
 
-1. Your file or pasted text is converted into plain text
+1. Documents are converted into plain text; photos and scanned PDFs are sent to Gemini as they are, so it can read them itself
 2. The content is sent to Google Gemini using a strict JSON schema
 3. Gemini writes multiple-choice questions, flashcards with a front and a back, or structured study notes
 4. The app shows the quiz and scores your answers, shows the cards in a grid you can flip, or shows notes you can print, save as PDF, or copy
@@ -29,6 +30,8 @@ This makes it easy to turn reading material into active recall practice in just 
 
 - Three modes: **Quiz**, **Flashcards**, or **Notes**
 - Supports `.pdf`, `.docx`, `.pptx`, `.txt`, and `.md` files
+- Photos of notes: up to 10 photos at once (`.jpg`, `.jpeg`, `.png`, `.webp`, `.heic`), all turned into one quiz, set of flashcards, or set of notes
+- Scanned PDFs (pages that are pictures, with no selectable text) are read too
 - Accepts pasted text directly from the browser
 - Quiz and flashcards: choose difficulty (easy, medium, or hard) and between 1 and 20 questions or cards
 - Quiz: correct answers highlight in green, wrong answers in red, and each question includes an explanation
@@ -115,7 +118,7 @@ The tests use a fake Gemini client, so they need no API key and make no network 
 | `GET /` | Loads the web interface |
 | `GET /health` | Health check used by the host |
 | `POST /quiz` | Accepts `{text, mode, count, difficulty, detail}` and returns a quiz, flashcards, or notes |
-| `POST /upload` | Accepts a form upload with `file`, `mode`, `count`, `difficulty`, and `detail` |
+| `POST /upload` | Accepts a form upload with `file`, `mode`, `count`, `difficulty`, and `detail`. Send one document, or repeat `file` for up to 10 photos |
 
 | Field | Values | Used by |
 |---|---|---|
@@ -141,7 +144,7 @@ http://127.0.0.1:8000/docs
 ```text
 app/
   main.py          FastAPI routes, input limits, and per-visitor rate limit
-  extract.py       Reads text from PDF, Word, PowerPoint, .txt and .md files
+  extract.py       Reads text from documents, and prepares photos and scanned PDFs to send to Gemini
   ai.py            Gemini calls, quiz, flashcard and notes schemas, model fallback, and retries
   static/          Frontend: index.html, style.css, app.js
 tests/             Automated tests (run with pytest)
@@ -153,9 +156,10 @@ requirements.txt   Exact pinned versions (generated from pyproject.toml)
 
 ## ⚠️ Limitations
 
-- Text must be 50 to 200,000 characters, and uploads can be at most 10 MB.
+- Text must be 50 to 200,000 characters, and uploads can be at most 10 MB in total.
+- Upload one document, or up to 10 photos. Photos can’t be mixed with documents.
+- Messy handwriting or blurry photos can be misread, so check the result against your notes.
 - Each visitor can make up to 5 requests per minute and 15 per day, shared by quizzes, flashcards, and notes.
-- Scanned PDFs without selectable text are not supported.
 - Gemini can be busy at times and return an error. Try again in a moment.
 
 ## Roadmap
@@ -169,10 +173,10 @@ requirements.txt   Exact pinned versions (generated from pyproject.toml)
 - ~~Run the tests automatically on every push (GitHub Actions)~~
 - ~~Flashcards~~
 - ~~Study notes with key points and important topics~~
+- ~~Photos of notes and scanned PDFs~~
 
 **Next**
 
-- Images and scanned or handwritten PDFs
 - Maths equations shown properly
 
 **Better learning**
