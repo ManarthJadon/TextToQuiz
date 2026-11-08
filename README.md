@@ -198,7 +198,6 @@ requirements.txt   Exact pinned versions (generated from pyproject.toml)
 - Cache results to save API quota
 - Export a quiz as PDF
 - User accounts and saved quiz history
-- Paid plans for higher usage
 
 ## Built for learning smarter
 
